@@ -32,72 +32,70 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// Colour for each layer as {red, green, blue}, 0-255.
-// Layer 0 is left empty so it keeps the normal Vial effect.
-static const uint8_t layer_colours[][3] = {
-    [1] = {0, 0, 255},    // Layer 1: blue
-    [2] = {255, 0, 0},    // Layer 2: red
-    [3] = {0, 255, 0},    // Layer 3: green
+// ---- Layer + dynamic macro lighting (RGB Matrix) ----
+// Priority: recording > playback flash > layer colour > normal Vial lighting
+// Hues (0-255): red 0, orange 21, yellow 43, green 85, cyan 128, blue 170, purple 191, pink 234
+
+static const uint8_t layer_hues[] = {
+    [1] = 170,  // Layer 1: blue
+    [2] = 191,  // Layer 2: purple
+    [3] = 43,   // Layer 3: yellow
 };
 
-bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
-    uint8_t layer = get_highest_layer(layer_state);
-
-    if (layer == 0 || layer >= ARRAY_SIZE(layer_colours)) {
-        return false;  // base layer: leave the normal effect alone
-    }
-
-    // Scale by the current brightness so it follows your Vial brightness setting
-    uint8_t v = rgb_matrix_get_val();
-    uint8_t r = layer_colours[layer][0] * v / 255;
-    uint8_t g = layer_colours[layer][1] * v / 255;
-    uint8_t b = layer_colours[layer][2] * v / 255;
-
-    for (uint8_t i = led_min; i < led_max; i++) {
-        rgb_matrix_set_color(i, r, g, b);
-    }
-    return false;
-}
-
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////
-// ---- Dynamic macro lighting ----
-// Hue values (0-255): red = 0, orange = 21, yellow = 43, green = 85, blue = 170, purple = 191
-
+static bool     dm_recording   = false;
+static int8_t   dm_direction   = 0;
 static bool     dm_flashing    = false;
 static uint16_t dm_flash_timer = 0;
 
-// Switch to a solid colour at the current brightness (not saved to EEPROM)
-static void dm_show_colour(uint8_t hue) {
+// Solid colour at the current brightness, not saved to EEPROM
+static void show_hue(uint8_t hue) {
     rgb_matrix_mode_noeeprom(RGB_MATRIX_SOLID_COLOR);
     rgb_matrix_sethsv_noeeprom(hue, 255, rgb_matrix_get_val());
 }
 
+static void update_lighting(layer_state_t state) {
+    uint8_t layer = get_highest_layer(state);
+
+    if (dm_recording) {
+        show_hue(dm_direction > 0 ? 0 : 21);   // red = macro 1, orange = macro 2
+    } else if (dm_flashing) {
+        show_hue(85);                          // green flash on playback
+    } else if (layer > 0 && layer < ARRAY_SIZE(layer_hues)) {
+        show_hue(layer_hues[layer]);
+    } else {
+        rgb_matrix_reload_from_eeprom();       // base layer: your normal Vial lighting
+    }
+}
+
+layer_state_t layer_state_set_user(layer_state_t state) {
+    update_lighting(state);
+    return state;
+}
+
 bool dynamic_macro_record_start_user(int8_t direction) {
-    dm_flashing = false;
-    // direction is 1 for macro 1, -1 for macro 2
-    dm_show_colour(direction > 0 ? 0 : 21);  // red for macro 1, orange for macro 2
+    dm_recording = true;
+    dm_direction = direction;
+    dm_flashing  = false;
+    update_lighting(layer_state);
     return true;
 }
 
 bool dynamic_macro_record_end_user(int8_t direction) {
-    rgb_matrix_reload_from_eeprom();  // back to your normal Vial lighting
+    dm_recording = false;
+    update_lighting(layer_state);
     return true;
 }
 
 bool dynamic_macro_play_user(int8_t direction) {
-    dm_show_colour(85);  // green flash on playback
     dm_flashing    = true;
     dm_flash_timer = timer_read();
+    update_lighting(layer_state);
     return true;
 }
 
 void housekeeping_task_user(void) {
-    // End the playback flash after 400 ms
     if (dm_flashing && timer_elapsed(dm_flash_timer) > 400) {
         dm_flashing = false;
-        rgb_matrix_reload_from_eeprom();
+        update_lighting(layer_state);
     }
 }
