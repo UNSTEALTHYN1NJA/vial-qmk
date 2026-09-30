@@ -29,3 +29,32 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [1] = { ENCODER_CCW_CW(RGB_MOD, RGB_RMOD), ENCODER_CCW_CW(KC_MNXT, KC_MPRV) }
 };
 #endif
+
+
+
+// Colour for each layer as {red, green, blue}, 0-255.
+// Layer 0 is left empty so it keeps the normal Vial effect.
+static const uint8_t layer_colours[][3] = {
+    [1] = {0, 0, 255},    // Layer 1: blue
+    [2] = {255, 0, 0},    // Layer 2: red
+    [3] = {0, 255, 0},    // Layer 3: green
+};
+
+bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    uint8_t layer = get_highest_layer(layer_state);
+
+    if (layer == 0 || layer >= ARRAY_SIZE(layer_colours)) {
+        return false;  // base layer: leave the normal effect alone
+    }
+
+    // Scale by the current brightness so it follows your Vial brightness setting
+    uint8_t v = rgb_matrix_get_val();
+    uint8_t r = layer_colours[layer][0] * v / 255;
+    uint8_t g = layer_colours[layer][1] * v / 255;
+    uint8_t b = layer_colours[layer][2] * v / 255;
+
+    for (uint8_t i = led_min; i < led_max; i++) {
+        rgb_matrix_set_color(i, r, g, b);
+    }
+    return false;
+}
