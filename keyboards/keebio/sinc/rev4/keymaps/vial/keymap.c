@@ -37,9 +37,9 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
 // Hues (0-255): red 0, orange 21, yellow 43, green 85, cyan 128, blue 170, purple 191, pink 234
 
 static const uint8_t layer_hues[] = {
-    [1] = 175,  // Layer 1: blue
-    [2] = 300,  // Layer 2: purple
-    [3] = 0,   // Layer 3: yellow
+    [1] = 128,  // Layer 1: cyan
+    [2] = 0,  // Layer 2: red
+    [3] = 191,   // Layer 3: purple
 };
 
 static bool     dm_recording   = false;
