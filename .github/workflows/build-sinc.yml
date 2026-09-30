@@ -1,0 +1,40 @@
+name: Build Sinc rev4 Vial firmware
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'keyboards/keebio/sinc/**'
+      - '.github/workflows/build-sinc.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: qmkfm/qmk_cli
+
+    steps:
+      - name: Allow git inside the container
+        run: git config --global --add safe.directory '*'
+
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Python requirements
+        run: |
+          python3 -m pip install -r requirements.txt \
+            || python3 -m pip install --break-system-packages -r requirements.txt
+
+      - name: Build firmware
+        run: make keebio/sinc/rev4:vial
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: sinc-rev4-vial-firmware
+          path: |
+            *.uf2
+            *.bin
+            *.hex
+          if-no-files-found: error
